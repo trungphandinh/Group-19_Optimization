@@ -1,6 +1,6 @@
 # Group-19_Optimization
 ## Overview
-This project is a movie recommendation system that suggests movies based on user preferences and viewing history.
+This project contains all the related folders, files about the topic: BIN PACKING WITH UPPER AND LOWER BOUND CAPACITY CONSTRAINT.
 
 ## Contributors
 | Name            | Student ID | Mail                          |

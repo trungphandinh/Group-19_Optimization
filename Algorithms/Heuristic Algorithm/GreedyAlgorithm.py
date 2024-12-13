@@ -28,6 +28,7 @@ orders.sort(key=lambda x: 0.9 * x["cost"] / x["quantity"] + x["quantity"] / 10, 
 
 total_served_orders = 0
 final_served_count = 0
+total_cost = 0
 
 def is_feasible(order, vehicle):
     updated_capacity = vehicle["current_capacity"] + order["quantity"]
@@ -60,6 +61,7 @@ for vehicle in vehicles:
             if is_feasible(order, vehicle):
                 vehicle["assigned_orders"].append(order["order_id"])
                 vehicle["total_cost"] += order["cost"]
+                total_cost += order["cost"]
                 order["is_available"] = False
                 total_served_orders += 1
                 vehicle["current_capacity"] += order["quantity"]
@@ -70,7 +72,10 @@ for vehicle in vehicles:
         final_served_count += len(vehicle["assigned_orders"])
 
 print(final_served_count)
+
 for vehicle in vehicles:
     if vehicle["min_capacity"] <= vehicle["current_capacity"] <= vehicle["max_capacity"]:
         for order_id in vehicle["assigned_orders"]:
             print(order_id, vehicle["vehicle_id"])
+
+print(total_cost)

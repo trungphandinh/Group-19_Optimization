@@ -281,7 +281,7 @@ def create_data_model():
     assert all(any(data["quantity"][i] <= ub for ub in data["upper_bounds"]) for i in range(data["order_num"])), "Some orders cannot fit in any vehicle!"
     return data
 
-def ant_colony_optimization(data, num_ants=20, num_iterations=100, alpha=1, beta=2, evaporation_rate=0.1, Q=100):
+def ant_colony_optimization(data, num_ants=80, num_iterations=100, alpha=1, beta=2, evaporation_rate=0.4, Q=200):
     # Extract data
     order_num = data["order_num"]
     vehicle_num = data["vehicle_num"]

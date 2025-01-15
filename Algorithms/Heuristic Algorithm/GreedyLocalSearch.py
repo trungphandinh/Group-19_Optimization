@@ -146,10 +146,10 @@ for v in vehicles:
         for o in v['served']:
             print(o['index'], end=' ')
             print(v['index'])
-print(f"Max cost: {total_cost}")
-# Tính tỷ lệ đơn hàng phục vụ
-service_rate = (final_served / num_of_orders) * 100
+# print(f"Max cost: {total_cost}")
+# # Tính tỷ lệ đơn hàng phục vụ
+# service_rate = (final_served / num_of_orders) * 100
 
-# In kết quả tỷ lệ phục vụ
-print(f"Service rate: {service_rate:.2f}%")
+# # In kết quả tỷ lệ phục vụ
+# print(f"Service rate: {service_rate:.2f}%")
 

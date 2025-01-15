@@ -3,6 +3,7 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+import time
 
 def create_data_model():
     data = {}
@@ -25,7 +26,7 @@ def create_data_model():
     assert all(any(data["quantity"][i] <= ub for ub in data["upper_bounds"]) for i in range(data["order_num"])), "Some orders cannot fit in any vehicle!"
     return data
 
-def ant_colony_optimization(data, num_ants=100, num_iterations=50, alpha=1, beta=2, evaporation_rate=0.4, Q=150, p_greedy=0.5):
+def ant_colony_optimization(data, num_ants=100, num_iterations=50, alpha=1, beta=2, evaporation_rate=0.4, Q=200, p_greedy=0.5):
     # Extract data
     order_num = data["order_num"]
     vehicle_num = data["vehicle_num"]
@@ -37,17 +38,9 @@ def ant_colony_optimization(data, num_ants=100, num_iterations=50, alpha=1, beta
     # Initialize pheromone matrix
     pheromone = [[1.0 for _ in range(vehicle_num)] for _ in range(order_num)]
 
-    # Heuristic information: based on cost-to-quantity ratio
-    heuristic = [[(costs[i] / quantities[i]) * (upper_bounds[j] - quantities[i]) if quantities[i] <= upper_bounds[j] else 0 \
-                  for j in range(vehicle_num)] \
-                 for i in range(order_num)]
-
     # Best solution
     best_solution = None
     best_cost = -float("inf")
-
-    # To store the best cost at each iteration
-    iteration_data = []
 
     # Main loop
     for iteration in range(num_iterations):
@@ -56,73 +49,68 @@ def ant_colony_optimization(data, num_ants=100, num_iterations=50, alpha=1, beta
 
         # Step 1: Each ant constructs a solution
         for ant in range(num_ants):
-            # Assign orders to vehicles
             solution = [[] for _ in range(vehicle_num)]
             vehicle_loads = [0] * vehicle_num
             total_cost = 0
 
             for order in range(order_num):
-                # Tính heuristic động
-                # heuristic = []
-                # for vehicle in range(vehicle_num):
-                #     remaining_capacity = upper_bounds[vehicle] - vehicle_loads[vehicle]
-                #     if quantities[order] <= remaining_capacity:  # Chỉ tính nếu đơn hàng có thể gán vào xe
-                #         heuristic_value = (costs[order] / quantities[order]) * remaining_capacity
-                #     else:
-                #         heuristic_value = 0  # Nếu không thể gán vào xe, giá trị heuristic bằng 0
-                #     heuristic.append(heuristic_value)
+                # Calculate heuristic
+                heuristic = []
+                for vehicle in range(vehicle_num):
+                    remaining_capacity = upper_bounds[vehicle] - vehicle_loads[vehicle]
+                    if quantities[order] <= remaining_capacity:
+                        heuristic_value = (costs[order] / quantities[order]) * remaining_capacity
+                    else:
+                        heuristic_value = 0
+                    heuristic.append(heuristic_value)
                     
                 # Calculate probabilities for each vehicle
                 probabilities = []
                 for vehicle in range(vehicle_num):
                     if vehicle_loads[vehicle] + quantities[order] <= upper_bounds[vehicle]:
                         tau = pheromone[order][vehicle] ** alpha
-                        eta = heuristic[order][vehicle] ** beta
+                        eta = heuristic[vehicle] ** beta
                         probabilities.append(tau * eta)
                     else:
-                        probabilities.append(0)  # Infeasible assignment
+                        probabilities.append(0)
 
                 # Normalize probabilities
                 total_prob = sum(probabilities)
                 if total_prob == 0:
-                    continue  # Skip this order if no valid options exist
+                    continue
                 probabilities = [p / total_prob for p in probabilities]
 
-                # Choose vehicle based on probabilities
-                selected_vehicle = random.choices(range(vehicle_num), weights=probabilities)[0]
-                # if random.random() < p_greedy:
-                #     # Choose vehicle with max probability
-                #     selected_vehicle = probabilities.index(max(probabilities))
-                # else:
-                #     # Choose randomly based on probabilities
-                #     selected_vehicle = random.choices(range(vehicle_num), weights=probabilities)[0]
+                # Choose vehicle
+                if random.random() < p_greedy:
+                    selected_vehicle = probabilities.index(max(probabilities))
+                else:
+                    selected_vehicle = random.choices(range(vehicle_num), weights=probabilities)[0]
 
                 # Assign order to the selected vehicle
                 solution[selected_vehicle].append(order)
                 vehicle_loads[selected_vehicle] += quantities[order]
                 total_cost += costs[order]
 
-            # Check feasibility of the solution
+            # Check feasibility
             is_feasible = all(lower_bounds[vehicle] <= vehicle_loads[vehicle] <= upper_bounds[vehicle] \
-                              for vehicle in range(vehicle_num))
+                for vehicle in range(vehicle_num))
             if is_feasible:
                 solutions.append(solution)
                 costs_of_solutions.append(total_cost)
 
         # Handle no feasible solution
         if not solutions:
-            print("No feasible solution found in this iteration.")
             continue
 
         # Step 2: Update pheromones
         for i in range(order_num):
             for j in range(vehicle_num):
-                pheromone[i][j] = max(pheromone[i][j] * (1 - evaporation_rate), 0.1)  # Evaporation with minimum level
+                pheromone[i][j] *= (1 - evaporation_rate)
 
         for solution, solution_cost in zip(solutions, costs_of_solutions):
             for vehicle, orders in enumerate(solution):
                 for order in orders:
-                    pheromone[order][vehicle] += Q / solution_cost  # Deposit pheromone
+                    pheromone[order][vehicle] += Q / solution_cost
 
         # Update best solution
         for solution, solution_cost in zip(solutions, costs_of_solutions):
@@ -130,82 +118,23 @@ def ant_colony_optimization(data, num_ants=100, num_iterations=50, alpha=1, beta
                 best_cost = solution_cost
                 best_solution = solution
 
-        # Save best cost at this iteration
-        iteration_data.append((iteration + 1, best_cost))
+    return best_solution, best_cost
 
-        # Print iteration status
-        print(f"Iteration {iteration + 1}: Best Cost = {best_cost}")
-
-    return best_solution, best_cost, iteration_data
-
-
-def calculate_vehicle_fill_rates(solution, quantities, lower_bounds, upper_bounds):
-    vehicle_fill_rates = []
-    for vehicle in range(len(solution)):
-        total_load = sum(quantities[order] for order in solution[vehicle])
-        fill_rate = (total_load / upper_bounds[vehicle]) * 100
-        vehicle_fill_rates.append(fill_rate)
-    return vehicle_fill_rates
-
-def plot_optimization_results(iteration_data, n, k):
-    """
-    Plot the optimization results showing the best cost over iterations.
-
-    Parameters:
-        iteration_data (list of tuples): A list where each tuple contains (iteration, best_cost).
-        n (int): Number of orders (N).
-        k (int): Number of vehicles (K).
-    """
-    # Convert iteration data to a DataFrame for easier manipulation with seaborn
-    df = pd.DataFrame(iteration_data, columns=["Iteration", "Best Cost"])
-
-    # Create a line plot
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=df, x="Iteration", y="Best Cost", marker="o")
-
-    # Customize the plot
-    plt.title(f"Optimization Results for N={n}, K={k}", fontsize=16)
-    plt.xlabel("Iteration", fontsize=14)
-    plt.ylabel("Best Cost", fontsize=14)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
-
-    # Show the plot
-    plt.show()
 
 # Input data
 data = create_data_model()
-order_num = data["order_num"]
-vehicle_num = data["vehicle_num"]
 
 # Run ACO
-solution, cost, iteration_data = ant_colony_optimization(data)
-orders_served = 0
-for vehicle in solution:
-    orders_served += len(vehicle)
+# start_time = time.time()
+solution, best_cost = ant_colony_optimization(data)
+# end_time = time.time()
 
-# Calculate vehicle fill rates
-vehicle_fill_rates = calculate_vehicle_fill_rates(solution, data["quantity"], data["lower_bounds"], data["upper_bounds"])
+# Count served orders
+served_orders = sum(len(vehicle) for vehicle in solution)
 
-# Output solution
-print("Best Cost:", cost)
-print("Orders served:", orders_served)
+# Output results
+print(served_orders)
 for vehicle_id, orders in enumerate(solution):
     for order in orders:
         print(order + 1, vehicle_id + 1)
-
-# Print vehicle fill rates
-print("\nVehicle Fill Rates:")
-for i, fill_rate in enumerate(vehicle_fill_rates):
-    print(f"Vehicle {i+1}: {fill_rate:.2f}%")
-print("Average fill rate:", sum(vehicle_fill_rates[i] for i in range(len(vehicle_fill_rates)))/len(vehicle_fill_rates),"%")
-print("Minimum fill rate:", min(vehicle_fill_rates),"%")
-print("Maximum fill rate:", max(vehicle_fill_rates),"%")
-# Plot optimization results
-plot_optimization_results(iteration_data, order_num, vehicle_num)
-
-
-
-
+# print(best_cost)

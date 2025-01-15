@@ -1,81 +1,109 @@
-num_orders, num_vehicles = tuple(map(int, input().split()))
-orders = []
-vehicles = []
+import time
 
-for order_id in range(1, num_orders + 1):
-    quantity, cost = tuple(map(int, input().split()))
+# Đo thời gian bắt đầu
+start_time = time.time()
+
+# Đọc dữ liệu đầu vào
+n, k = map(int, input().split())
+bins = []
+orders = []
+
+for order_id in range(1, n + 1):
+    d, c = map(int, input().split())
     orders.append({
         "order_id": order_id,
-        "quantity": quantity,
-        "cost": cost,
-        "is_available": True
+        "bin": 0,
+        "open": True,
+        "weight": d,
+        "cost": c,
     })
 
-for vehicle_id in range(1, num_vehicles + 1):
-    min_capacity, max_capacity = tuple(map(int, input().split()))
-    vehicles.append({
-        "vehicle_id": vehicle_id,
-        "min_capacity": min_capacity,
-        "max_capacity": max_capacity,
-        "current_capacity": 0,
-        "assigned_orders": [],
-        "total_cost": 0,
-        "is_active": True
+for bin_id in range(1, k + 1):
+    c1, c2 = map(int, input().split())
+    bins.append({
+        "bin_id": bin_id,
+        "lower_bound": c1,
+        "upper_bound": c2,
+        "weight": 0,
+        "cost": 0,
+        "items": []
     })
 
-vehicles.sort(key=lambda x: x["max_capacity"] - x["min_capacity"], reverse=False)
-orders.sort(key=lambda x: 0.9 * x["cost"] / x["quantity"] + x["quantity"] / 10, reverse=True)
+# Sắp xếp phương tiện theo khoảng tải trọng tăng dần
+bins.sort(key=lambda x: x["upper_bound"] - x["lower_bound"], reverse=False)
 
-total_served_orders = 0
-final_served_count = 0
-total_cost = 0
+# Sắp xếp đơn hàng theo chi phí giảm dần
+orders.sort(key=lambda x: x['cost'], reverse=True)
+served = 0
 
-def is_feasible(order, vehicle):
-    updated_capacity = vehicle["current_capacity"] + order["quantity"]
-    within_capacity = updated_capacity <= vehicle["max_capacity"]
-    if within_capacity:
-        if num_orders - total_served_orders > 0:
-            smallest_quantity = float("inf")
+# Hàm kiểm tra tính khả thi khi gán đơn hàng vào phương tiện
+def feasible(order, bin) -> bool:
+    bin_total = bin['weight'] + order['weight']
+    in_bounds = bin_total <= bin['upper_bound']
+    if in_bounds:
+        if n - served > 0:
+            min_weight = 0
             for other_order in orders:
-                if other_order != order and other_order["quantity"] < smallest_quantity and other_order["is_available"]:
-                    smallest_quantity = other_order["quantity"]
-            if updated_capacity + smallest_quantity > vehicle["max_capacity"]:
-                if updated_capacity < vehicle["min_capacity"]:
+                if other_order != order and other_order['weight'] < min_weight and other_order['open']:
+                    min_weight = other_order['weight']
+            if bin_total + min_weight > bin['upper_bound']:
+                if bin_total < bin['lower_bound']:
                     return False
                 else:
-                    vehicle["is_active"] = False
+                    bin['open'] = False
                     return True
             else:
                 return True
         else:
-            if updated_capacity < vehicle["min_capacity"]:
+            if bin_total < bin['lower_bound']:
                 return False
             else:
-                vehicle["is_active"] = False
+                bin['open'] = False
                 return True
     return False
 
-for vehicle in vehicles:
+# Gán đơn hàng cho phương tiện
+for bin in bins:
     for order in orders:
-        if order["is_available"]:
-            if is_feasible(order, vehicle):
-                vehicle["assigned_orders"].append(order["order_id"])
-                vehicle["total_cost"] += order["cost"]
-                total_cost += order["cost"]
-                order["is_available"] = False
-                total_served_orders += 1
-                vehicle["current_capacity"] += order["quantity"]
+        if order['open']:
+            if feasible(order, bin):
+                bin['items'].append(order['order_id'])
+                order['open'] = False
+                bin['weight'] += order['weight']
+                bin['cost'] += order['cost']
+                served += 1
 
+# Tính số đơn hàng được phục vụ
 final_served_count = 0
-for vehicle in vehicles:
-    if vehicle["min_capacity"] <= vehicle["current_capacity"] <= vehicle["max_capacity"]:
-        final_served_count += len(vehicle["assigned_orders"])
+total_cost = 0  # Tổng chi phí tối ưu (best cost)
+valid_bin = 0
+total_fill_rate = 0  # Tỷ lệ lấp đầy trung bình
+for bin in bins:
+    if bin['lower_bound'] <= bin['weight'] <= bin['upper_bound']:
+        valid_bin += 1
+        final_served_count += len(bin['items'])
+        total_cost += bin['cost']  # Cộng chi phí của các phương tiện hợp lệ
+        fill_rate = (bin['weight'] / bin['upper_bound']) * 100
+        total_fill_rate += fill_rate  # Cộng tỷ lệ lấp đầy của từng xe
 
-print(final_served_count)
+# Tính tỷ lệ lấp đầy trung bình
+average_fill_rate = total_fill_rate / valid_bin if valid_bin > 0 else 0
 
-for vehicle in vehicles:
-    if vehicle["min_capacity"] <= vehicle["current_capacity"] <= vehicle["max_capacity"]:
-        for order_id in vehicle["assigned_orders"]:
-            print(order_id, vehicle["vehicle_id"])
+# Đo thời gian kết thúc
+end_time = time.time()
+execution_time = end_time - start_time
 
-print(total_cost)
+# In kết quả
+print(f"Total Orders Served: {final_served_count}")
+print(f"Best Cost (Optimal Value): {total_cost}")
+print(f"Average Fill Rate: {average_fill_rate:.2f}%")
+print(f"Execution Time: {execution_time:.4f} seconds")
+
+# In thông tin chi tiết từng phương tiện
+for bin in bins:
+    if bin['lower_bound'] <= bin['weight'] <= bin['upper_bound']:
+        fill_rate = (bin['weight'] / bin['upper_bound']) * 100  # Tỷ lệ lấp đầy (dạng phần trăm)
+        print(f"Bin {bin['bin_id']}:")
+        print(f"  Total Weight: {bin['weight']}/{bin['upper_bound']} ({fill_rate:.2f}% filled)")
+        # print(f"  Cost: {bin['cost']}")
+        # print(f"  Items: {bin['items']}")

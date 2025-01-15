@@ -169,21 +169,40 @@ def main():
     if status == pywraplp.Solver.OPTIMAL:
         # Đếm số đơn hàng được phục vụ
         served_orders = 0
+        vehicle_weights = [0] * data['num_vehicles']  # Tổng trọng lượng trên từng xe
         for i in range(data['num_orders']):
             for j in range(data['num_vehicles']):
                 if x[(i, j)].solution_value() > 0:
                     served_orders += 1
+                    vehicle_weights[j] += data['orders_quantity'][i]  # Cộng dồn trọng lượng cho xe j
         
-        # In số đơn hàng được phục vụ
-        print(served_orders)
+        # Tính tỷ lệ lấp đầy của từng xe
+        vehicle_fill_rates = []
+        for j in range(data['num_vehicles']):
+            if vehicle_weights[j] > 0:  # Chỉ tính cho các xe có đơn hàng
+                fill_rate = (vehicle_weights[j] / data['vehicles_upper_cap'][j]) * 100
+                vehicle_fill_rates.append(fill_rate)
+                print(f"Vehicle {j + 1}: Weight = {vehicle_weights[j]}/{data['vehicles_upper_cap'][j]} ({fill_rate:.2f}% filled)")
+            else:
+                print(f"Vehicle {j + 1}: No orders assigned.")
+        
+        # Tính tỷ lệ lấp đầy trung bình
+        if vehicle_fill_rates:
+            average_fill_rate = sum(vehicle_fill_rates) / len(vehicle_fill_rates)
+        else:
+            average_fill_rate = 0
+        
+        # In tỷ lệ lấp đầy trung bình
+        print(f"Average Fill Rate: {average_fill_rate:.2f}%")
         
         # In chi tiết phân bổ
         for i in range(data['num_orders']):
             for j in range(data['num_vehicles']):
                 if x[(i, j)].solution_value() > 0:
-                    print(f"{i + 1} {j + 1}")
+                    print(f"Order {i + 1} assigned to Vehicle {j + 1}")
         
-        print("Cost:", solver.Objective().Value())
+        # In tổng chi phí tối ưu
+        print("Total Cost:", solver.Objective().Value())
         
         # In thời gian chạy
         print(f"Elapsed time: {elapsed_time:.2f} seconds")

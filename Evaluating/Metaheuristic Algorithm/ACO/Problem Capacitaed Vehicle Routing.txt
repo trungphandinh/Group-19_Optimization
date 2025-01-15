@@ -1,0 +1,119 @@
+Problem: Capacitaed Vehicle Routing
+Description
+A fleet of K identical trucks having capacity Q need to be scheduled to delivery pepsi packages from a central depot 0 to clients 1,2,…,n. Each client i requests d[i] packages. The distance from location i to location j is c[i,j], 0≤i,j≤n. A delivery solution is a set of routes: each truck is associated with a route, starting from depot, visiting some clients and returning to the depot for deliverying requested pepsi packages such that:
+Each client is visited exactly by one route
+Total number of packages requested by clients of each truck cannot exceed its capacity
+Goal
+Find a solution having minimal total travel distance
+Note that: 
+There might be the case that a truck does not visit any client (empty route)
+The orders of clients in a route is important, e.g., routes 0 -> 1 -> 2 -> 3 -> 0 and 0 -> 3-> 2 -> 1 -> 0 are different.
+Input
+Line 1: n,K,Q (2≤n≤12,1≤K≤5,1≤Q≤50)
+Line 2: d[1],...,d[n](1≤d[i]≤10)
+Line i+3 (i=0,…,n): the i_th row of the distance matrix c (1≤c[i,j]≤30)
+Output
+Minimal total travel distance
+Example
+Input
+4 2 15
+7 7 11 2
+0 12 12 11 14
+14 0 11 14 14
+14 10 0 11 12
+10 14 12 0 13
+10 13 14 11 0
+
+Output
+70
+
+
+
+Problem: CBUS
+Description
+There are n passengers 1, 2, …, n. The passenger i want to travel from point i to point i + n (i = 1,2,…,n). There is a bus located at point 0 and has k places for transporting the passengers (it means at any time, there are at most k passengers on the bus). You are given the distance matrix c in which c(i,j) is the traveling distance from point i to point j (i, j = 0,1,…, 2n). Compute the shortest route for the bus, serving n passenger
+s and coming back to point 0. 
+Input
+Line 1 contains n and k (1≤n≤11,1≤k≤10)
+ Line i+1 (i=1,2,…,2n+1) contains the (i−1) th line of the matrix c (rows and columns are indexed from 0,1,2,..,2n).
+Output
+Unique line contains the length of the shortest route.
+Example
+Input
+3  2
+0  8  5  1  10  5  9
+9  0  5  6  6  2  8
+2  2  0  3  8  7  2
+5  3  4  0  3  2  7
+9  6  8  7  0  9  10
+3  8  10  6  5  0  2
+3  4  4  5  2  2  0
+Output
+25
+
+
+
+def tabular_simplex(A, B, C, n, m):
+    D = [[0 for col in range(n + m + 3)] for row in range(m + 2)]
+    
+    for row in range(1, m + 1):  # loop through constraints
+        for col in range(1, n + 1):  # loop through coefficients of A
+            D[row][col] = A[row][col]  # Copy coefficients from A to D
+        D[row][n + row] = 1  # Add slack variables
+        D[row][n + m + 1] = B[row]  # Add B (RHS of constraints)
+
+    for col in range(1, n + 1):
+        D[m + 1][col] = -C[col]  
+    
+    for row in range(1, m + 1):
+        D[row][0] = n + row  # Basis variables
+
+    while True:
+        # Check if the current solution is optimal
+        if all(x >= 0 for x in D[m + 1][1: n + m + 1]):
+            solution = [0] * (n + 1)
+            for row in range(1, m + 1):
+                if D[row][0] <= n:
+                    solution[D[row][0]] = D[row][n + m + 1]
+            print(n)
+            print(*solution[1:])
+            return
+        
+        min_col = D[m + 1][1: n + m + 1].index(min(D[m + 1][1: n + m + 1])) + 1
+
+        ratios = []
+        for row in range(1, m + 1):
+            if D[row][min_col] > 0:
+                ratios.append(D[row][n + m + 1] / D[row][min_col])
+            else:
+                ratios.append(float('inf'))
+        
+        if all(r == float('inf') for r in ratios):
+            print("UNBOUNDED")
+            return
+        
+        # Find the leaving variable (smallest positive ratio)
+        min_row = ratios.index(min(ratios)) + 1
+        D[min_row][0] = min_col  # Update basis
+
+        # Perform pivot operation
+        pivot = D[min_row][min_col]
+        for col in range(1, n + m + 2):
+            D[min_row][col] /= pivot
+        for row in range(1, m + 2):
+            if row != min_row:
+                factor = D[row][min_col]
+                for col in range(1, n + m + 2):
+                    D[row][col] -= factor * D[min_row][col]
+
+if __name__ == '__main__':
+    n, m = map(int, input().split())
+    C = [0] + list(map(float, input().split()))  
+    A = [[0] * (n + 1) for _ in range(m + 1)]  
+    for i in range(1, m + 1):
+        row = list(map(float, input().split()))
+        for j in range(1, n + 1):
+            A[i][j] = row[j - 1]
+    B = [0] + list(map(float, input().split())) 
+    
+    tabular_simplex(A, B, C, n, m)
